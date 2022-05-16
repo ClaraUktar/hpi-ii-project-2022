@@ -2,3 +2,4 @@ venv/
 build/gen/bakdata/corporate/v1/*_pb2.py
 .idea
 __pycache__/
+.env

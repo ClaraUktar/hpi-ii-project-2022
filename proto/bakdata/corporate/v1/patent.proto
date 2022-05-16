@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package bakdata.corporate.v1;
+
+message Patent {
+  string id = 1;
+}
