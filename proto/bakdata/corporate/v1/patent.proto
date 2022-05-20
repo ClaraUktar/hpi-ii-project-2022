@@ -7,7 +7,7 @@ package bakdata.corporate.v1;
 message Patent {
   string publicationId = 1;
   repeated Status statuses = 2;
-  repeated Publication documents = 3;
+  repeated Document documents = 3;
   Application application = 4;
   string filingLanguage = 5;
   repeated Party applicants = 6;
@@ -40,10 +40,10 @@ message Status {
   }
 
   Code code = 1;
-  google.protobuf.Timestamp changeDate = 2;
+  optional google.protobuf.Timestamp changeDate = 2;
 }
 
-message Publication {
+message Document {
   string country = 1;     // e.g. EP
   string language = 2;    // e.g. DE
   string docNumber = 3;   // e.g. 0000001
