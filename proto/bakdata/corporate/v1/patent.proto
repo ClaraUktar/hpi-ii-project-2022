@@ -1,7 +1,65 @@
 syntax = "proto3";
 
+import "google/protobuf/timestamp.proto";
+
 package bakdata.corporate.v1;
 
 message Patent {
-  string id = 1;
+  string publicationId = 1;
+  repeated Status statuses = 2;
+  repeated Publication documents = 3;
+  Application application = 4;
+  string filingLanguage = 5;
+  repeated Party applicants = 6;
+  repeated Party inventors = 7;
+  repeated Party representatives = 8;
+  repeated string designatedStates = 9;
+  map<string, string> titles = 10; // maps language to title
+}
+
+message Status {
+  enum Code {
+    UNKNOWN = 0;
+    PATENT_REVOKED_BY_PROPRIETOR = 1;
+    PATENT_LIMITED = 2;
+    PATENT_MAINTAINED = 3;
+    PATENT_REVOKED = 4;
+    OPPOSITION_REJECTED = 5;
+    OPPOSITION_CLOSED = 6;
+    NO_OPPOSITION_FILED_WITHIN_LIMIT = 7;
+    PATENT_GRANTED = 8;
+    APPLICATION_WITHDRAWN = 9;
+    APPLICATION_DEEMED_TO_BE_WITHDRAWN = 10;
+    APPLICATION_REFUSED = 11;
+    GRANT_INTENDED = 12;
+    PROCEEDINGS_CLOSED = 13;
+    EXAMINATION_IN_PROGRESS = 14;
+    EXAMINATION_REQUEST_MADE = 15;
+    APPLICATION_PUBLISHED = 16;
+    INTERNATIONAL_PUBLICATION_MADE = 17;
+  }
+
+  Code code = 1;
+  google.protobuf.Timestamp changeDate = 2;
+}
+
+message Publication {
+  string country = 1;     // e.g. EP
+  string language = 2;    // e.g. DE
+  string docNumber = 3;   // e.g. 0000001
+  string kind = 4;        // e.g. A1 (application), B1 (specification)
+  google.protobuf.Timestamp date = 5;
+}
+
+message Application {
+  string applicationId = 1;
+  google.protobuf.Timestamp filingDate = 2;
+}
+
+// Applicant, Inventor, Representative
+message Party {
+  string name = 1;
+  string address = 2;
+  string zipCode = 3;
+  string country = 4;
 }
