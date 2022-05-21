@@ -154,8 +154,14 @@ class EpoParser:
             self._extract_all_party_members(Party.REPRESENTATIVE, parties)
 
             # 9. Designated states
-            raw_states = bibliographic_data["reg:designation-of-states"]["reg:designation-pct"]["reg:regional"]["reg:country"]
-            self._extract_designated_states(raw_states)
+            raw_states = bibliographic_data["reg:designation-of-states"]
+
+            if isinstance(raw_states, list):
+                self._extract_designated_states(
+                    raw_states[0]["reg:designation-pct"]["reg:regional"]["reg:country"])
+            else:
+                self._extract_designated_states(
+                    raw_states["reg:designation-pct"]["reg:regional"]["reg:country"])
 
             # 10. Titles
             raw_titles = bibliographic_data["reg:invention-title"]
