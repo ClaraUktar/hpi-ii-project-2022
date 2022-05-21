@@ -62,13 +62,11 @@ class EpoParser:
         party.name = raw_party["reg:name"]["$"]
         party.country = raw_party["reg:address"]["reg:country"]["$"]
 
-        address1 = raw_party["reg:address"]["reg:address-1"]["$"]
+        address_fields = filter(lambda item: str(item[0]).startswith(
+            "reg:address-"), raw_party["reg:address"].items())
+        address = ", ".join(map(lambda adr: adr[1]["$"], address_fields))
 
-        if "reg:address-2" in raw_party["reg:address"]:
-            address2 = raw_party["reg:address"]["reg:address-2"]["$"]
-            party.address = f"{address1}, {address2}"
-        else:
-            party.address = address1
+        party.address = address
 
     def _extract_applicant(self, raw_applicant):
         applicant = self.patent.applicants.add()
