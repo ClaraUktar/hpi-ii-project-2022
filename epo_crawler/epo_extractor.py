@@ -61,14 +61,13 @@ class EpoExtractor:
 
             if response.status_code == 200:
                 return response.json()
-            elif response.status_code == 403:
-                if response.headers.get("X-Rejection-Reason") == "RegisteredQuotaPerWeek":
-                    logger.error("Weekly request quota exhausted, stopping program.")
-                    exit(1)
-                else:
-                    # if access token is expired, try to request a new one and retry
-                    self._request_access_token()
-                    return self._send_request(id)
+            if response.status_code == 400:
+                # if access token is expired, try to request a new one and retry
+                self._request_access_token()
+                return self._send_request(id)
+            elif response.status_code == 403 and response.headers.get("X-Rejection-Reason") == "RegisteredQuotaPerWeek":
+                logger.error("Weekly request quota exhausted, stopping program.")
+                exit(1)
             elif response.status_code == 404:
                 # if 404, skip to next (return nothing)
                 return None
