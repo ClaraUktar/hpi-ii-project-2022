@@ -1,10 +1,11 @@
-from datetime import datetime
 import logging
+from datetime import datetime
+from epo_crawler.constants import Party
 
 from build.gen.bakdata.corporate.v1.patent_pb2 import Patent
 
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class EpoParser:
@@ -58,10 +59,16 @@ class EpoParser:
         self._set_timestamp(application.filingDate, raw_application["reg:date"]["$"])
 
     def _extract_party(self, party, raw_party):
-        party.name = raw_party["reg:addressbook"]["reg:name"]["$"]
-        party.address = raw_party["reg:addressbook"]["reg:address"]["reg:address-1"]["$"]
-        party.zipCode = raw_party["reg:addressbook"]["reg:address"]["reg:address-2"]["$"]
-        party.country = raw_party["reg:addressbook"]["reg:address"]["reg:country"]["$"]
+        party.name = raw_party["reg:name"]["$"]
+        party.country = raw_party["reg:address"]["reg:country"]["$"]
+
+        address1 = raw_party["reg:address"]["reg:address-1"]["$"]
+
+        if "reg:address-2" in raw_party["reg:address"]:
+            address2 = raw_party["reg:address"]["reg:address-2"]["$"]
+            party.address = f"{address1}, {address2}"
+        else:
+            party.address = address1
 
     def _extract_applicant(self, raw_applicant):
         applicant = self.patent.applicants.add()
@@ -74,6 +81,31 @@ class EpoParser:
     def _extract_representative(self, raw_representative):
         representative = self.patent.representatives.add()
         self._extract_party(representative, raw_representative)
+
+    def _extract_all_party_members(self, member: Party, parties):
+        if not member in [Party.APPLICANT, Party.INVENTOR, Party.REPRESENTATIVE]:
+            return
+
+        if f"reg:{member}s" in parties:
+            raw_parties = parties[f"reg:{member}s"]
+
+            if isinstance(raw_parties, list):
+                # Assumption: We are only interested in the latest entries and therefore
+                # parse the first list entry only
+                raw_parties = raw_parties[0][f"reg:{member}"]
+            else:
+                raw_parties = raw_parties[f"reg:{member}"]
+
+            extractor = None
+
+            if member == Party.APPLICANT:
+                extractor = self._extract_applicant
+            elif member == Party.INVENTOR:
+                extractor = self._extract_inventor
+            elif member == Party.REPRESENTATIVE:
+                extractor = self._extract_representative
+
+            self._apply_to_children(raw_parties, "reg:addressbook", lambda party: extractor(party))
 
     def _extract_designated_states(self, raw_states):
         states = map(lambda s: s["$"], raw_states)
@@ -112,19 +144,14 @@ class EpoParser:
             self.patent.filingLanguage = bibliographic_data["reg:language-of-filing"]["$"]
 
             # 6. Applicants
-            raw_applicants = bibliographic_data["reg:parties"]["reg:applicants"]
-            self._apply_to_children(raw_applicants, "reg:applicant",
-                                    lambda applicant: self._extract_applicant(applicant))
+            parties = bibliographic_data["reg:parties"]
+            self._extract_all_party_members(Party.APPLICANT, parties)
 
-            # 7. Inventors
-            raw_inventors = bibliographic_data["reg:parties"]["reg:inventors"]
-            self._apply_to_children(raw_inventors, "reg:inventor",
-                                    lambda inventor: self._extract_inventor(inventor))
+            # 7. Inventors (can be optional)
+            self._extract_all_party_members(Party.INVENTOR, parties)
 
-            # 8. Representatives
-            raw_representatives = bibliographic_data["reg:parties"]["reg:agents"]
-            self._apply_to_children(raw_representatives, "reg:agent",
-                                    lambda representative: self._extract_representative(representative))
+            # 8. Representatives (can be optional)
+            self._extract_all_party_members(Party.REPRESENTATIVE, parties)
 
             # 9. Designated states
             raw_states = bibliographic_data["reg:designation-of-states"]["reg:designation-pct"]["reg:regional"]["reg:country"]
@@ -136,5 +163,5 @@ class EpoParser:
 
             return self.patent
         except Exception as ex:
-            log.error("Serializing EPO JSON failed", ex)
+            logger.error("Serializing EPO JSON failed", ex)
             return None
