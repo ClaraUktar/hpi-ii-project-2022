@@ -5,6 +5,7 @@ import re
 
 from epo_crawler.epo_extractor import EpoExtractor
 from epo_crawler.epo_parser import EpoParser
+from epo_crawler.epo_producer import EpoProducer
 from dotenv import load_dotenv
 from time import sleep
 
@@ -28,6 +29,7 @@ def run(id: str):
     load_dotenv()
     extractor = EpoExtractor()
     parser = EpoParser()
+    producer = EpoProducer()
 
     id_num = int(id[2:])
 
@@ -41,6 +43,8 @@ def run(id: str):
             continue
 
         patent = parser.serialize(id, epo_json)
+
+        producer.produce_to_topic(patent)
 
         sleep(0.5)
         id_num += 1
