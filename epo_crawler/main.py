@@ -1,8 +1,11 @@
+import click
+import logging
+import os
+import re
+
 from epo_crawler.epo_extractor import EpoExtractor
 from epo_crawler.epo_parser import EpoParser
 from dotenv import load_dotenv
-import logging
-import os
 from time import sleep
 
 logging.basicConfig(
@@ -11,19 +14,36 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def run():
+def validate_id(ctx, param, value):
+    if re.match("^EP[0-9]{6}[1-9]", value):
+        return value
+    else:
+        raise click.BadParameter(
+            "Parameter --id must be in format EPNNNNNNN where N is a digit between 0 and 9.")
+
+
+@click.command()
+@click.option("-i", "--id", required=True, callback=validate_id, help="The patent ID (publication) to initialize the crawl from (format: EPNNNNNNN where N is a digit between 0 and 9)")
+def run(id: str):
     load_dotenv()
     extractor = EpoExtractor()
     parser = EpoParser()
 
-    id = "EP0000001"
-    epo_json = extractor.fetch(id)
+    id_num = int(id[2:])
 
-    logger.debug(epo_json)
+    while True:
+        id = f"EP{str(id_num).zfill(7)}"
+        logger.info(f"Fetching EPO data of publication with id {id}")
 
-    patent = parser.serialize(id, epo_json)
+        epo_json = extractor.fetch(id)
 
-    logger.debug(patent)
+        if not epo_json:
+            continue
+
+        patent = parser.serialize(id, epo_json)
+
+        sleep(0.5)
+        id_num += 1
 
 
 if __name__ == "__main__":

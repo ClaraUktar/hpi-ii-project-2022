@@ -49,6 +49,7 @@ class EpoExtractor:
     def _send_request(self, id: str):
         try:
             if not self.access_token:
+                logger.warning(f"Access token not set, skipping request ({id})")
                 return
 
             url = f"https://ops.epo.org/3.2/rest-services/register/publication/epodoc/{id}/biblio"
