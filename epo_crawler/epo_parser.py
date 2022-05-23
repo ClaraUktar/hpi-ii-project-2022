@@ -32,8 +32,8 @@ class EpoParser:
     @staticmethod
     def _set_timestamp(element, date: str):
         """ Sets a protobuf timestamp instance by parsing an EPO date string of format YYYYMMDD. """
-
-        element.FromDatetime(datetime.strptime(date, "%Y%m%d"))
+        if date:
+            element.FromDatetime(datetime.strptime(date, "%Y%m%d"))
 
     # === DATA EXTRACTORS ===
     def _extract_status(self, raw_status):
@@ -46,10 +46,10 @@ class EpoParser:
     def _extract_document(self, raw_document):
         document = self.patent.documents.add()
         document.country = raw_document["reg:country"]["$"]
-        document.language = raw_document["@lang"]
+        document.language = raw_document.get("@lang", "")
         document.docNumber = raw_document["reg:doc-number"]["$"]
         document.kind = raw_document["reg:kind"]["$"]
-        self._set_timestamp(document.date, raw_document["reg:date"]["$"])
+        self._set_timestamp(document.date, raw_document.get("reg:date", {}).get("$", None))
 
     def _extract_application(self, raw_application):
         application = self.patent.application
