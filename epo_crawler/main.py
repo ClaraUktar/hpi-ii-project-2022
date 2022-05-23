@@ -48,6 +48,10 @@ def run(id: int, single: bool):
         sleep(0.5)
         id += 1
 
+        # Stop crawling if maximum id reached
+        if id == 10_000_000:
+            break
+
 
 if __name__ == "__main__":
     run()
