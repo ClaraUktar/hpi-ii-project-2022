@@ -5,11 +5,11 @@ can find the documentation for setting up the project.
 
 ## Prerequisites
 
-- Install [Poetry](https://python-poetry.org/docs/#installation)
-- Install [Docker](https://docs.docker.com/get-docker/) and [docker-compose](https://docs.docker.com/compose/install/)
-- Install [Protobuf compiler (protoc)](https://grpc.io/docs/protoc-installation/). If you are using windows you can
-  use [this guide](https://www.geeksforgeeks.org/how-to-install-protocol-buffers-on-windows/)
-- Install [jq](https://stedolan.github.io/jq/download/)
+-   Install [Poetry](https://python-poetry.org/docs/#installation)
+-   Install [Docker](https://docs.docker.com/get-docker/) and [docker-compose](https://docs.docker.com/compose/install/)
+-   Install [Protobuf compiler (protoc)](https://grpc.io/docs/protoc-installation/). If you are using windows you can
+    use [this guide](https://www.geeksforgeeks.org/how-to-install-protocol-buffers-on-windows/)
+-   Install [jq](https://stedolan.github.io/jq/download/)
 
 ## Architecture
 
@@ -25,7 +25,7 @@ and `land_abk`. For instance, we chose the state Rheinland-Pfalz `rp` with an an
 new entry of the company BioNTech.
 
 ```shell
-export STATE="rp" 
+export STATE="rp"
 export RB_ID="56267"
 curl -X GET  "https://www.handelsregisterbekanntmachungen.de/skripte/hrb.php?rb_id=$RB_ID&land_abk=$STATE"
 ```
@@ -61,7 +61,30 @@ key will look like this: `rp_56267`.
 The value of the message contains more information like `event_name`, `event_date`, and more. Therefore, the value type
 is complex and needs a schema definition.
 
+### EPO Website and API
+
+The [European Patent Office (EPO)](https://www.epo.org/) lists information regarding European patents. In particular, all patent publications can be accessed via the [website](https://register.epo.org/) or the provided [REST API](https://developers.epo.org/). Each publication contains information such as the titles of the patent; its status; its applicants, inventors and representatives; or the designated states in which the patent is protected. Each publication is identified by a unique ID in the format of `EP<7-digit-id>`, e.g. `EP3995958` (a patent for "ADAPTIVE CLOUD REQUEST HANDLING" by SAP). A publication can be accessed by either querying the web interface or using the provided endpoint directly:
+
+```
+https://ops.epo.org/3.2/rest-services/register/publication/epodoc/{id}/biblio
+```
+
+However, the API endpoint requires authentication via OAuth. Credentials can be obtained on the [EPO website](https://developers.epo.org/user/register).
+
+### EPO Crawler
+
+The European Patent Office crawler (`epo_crawler`) first authenticates itself with the EPO API by using credentials provided as environment variables (more on that below). It then sends a GET request to the link above with the `epo_id` (`EPxxxxxxx`) passed to it and extracts the information from the response.
+A `Patent` object is subsequently created based on the corresponding [protobuf schema](./proto/bakdata/corporate/v1/patent.proto) and its fields are filled with the extracted data from the website. The crawler then serializes the `Patent` object to bytes so that Kafka can read it and produces it to the `patent-events`
+topic. After that, it increments the `epo_id` value and sends another GET request.
+This process continues until either the weekly quota limit of the EPO API is reached or the maximum `epo_id` (EP9999999) is passed.
+
+### patent-events topic
+
+TODO
+
 ### Kafka Connect
+
+TODO: Add EPO
 
 [Kafka Connect](https://docs.confluent.io/platform/current/connect/index.html) is a tool to move large data sets into
 (source) and out (sink) of Kafka.
@@ -72,6 +95,8 @@ We use the [Elasticsearch Sink Connector](https://docs.confluent.io/kafka-connec
 to move the data from the `coporate-events` topic into the Elasticsearch.
 
 ## Setup
+
+TODO: Add EPO
 
 This project uses [Poetry](https://python-poetry.org/) as a build tool.
 To install all the dependencies, just run `poetry install`.
@@ -91,7 +116,7 @@ with the name `corporate_pb2.py`.
 Use `docker-compose up -d` to start all the services: [Zookeeper](https://zookeeper.apache.org/)
 , [Kafka](https://kafka.apache.org/), [Schema
 Registry](https://docs.confluent.io/platform/current/schema-registry/index.html)
-, [Kafka REST Proxy]((https://github.com/confluentinc/kafka-rest)), [Kowl](https://github.com/redpanda-data/kowl),
+, [Kafka REST Proxy](<(https://github.com/confluentinc/kafka-rest)>), [Kowl](https://github.com/redpanda-data/kowl),
 [Kafka Connect](https://docs.confluent.io/platform/current/connect/index.html),
 and [Elasticsearch](https://www.elastic.co/elasticsearch/). Depending on your system, it takes a couple of minutes
 before the services are up and running. You can use a tool
@@ -99,6 +124,8 @@ like [lazydocker](https://github.com/jesseduffield/lazydocker)
 to check the status of the services.
 
 ### Kafka Connect
+
+TODO: Add EPO
 
 After all the services are up and running, you need to configure Kafka Connect to use the Elasticsearch sink connector.
 The config file is a JSON formatted file. We provided a [basic configuration file](./connect/elastic-sink.json).
@@ -135,6 +162,8 @@ Options:
   --help                          Show this message and exit.
 ```
 
+TODO: Add EPO
+
 ## Query data
 
 ### Kowl
@@ -167,7 +196,9 @@ curl -X GET "localhost:9200/_search?pretty" -H 'Content-Type: application/json' 
 ```
 
 ## Teardown
+
 You can stop and remove all the resources by running:
+
 ```shell
 docker-compose down
 ```
