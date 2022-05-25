@@ -162,7 +162,7 @@ class EpoParser:
 
             # 9. Designated states
             raw_states = bibliographic_data["reg:designation-of-states"]
-            self._apply_to_first(raw_states, lambda s: self._extract_designated_states(s["reg:designation-pct"]["reg:regional"]["reg:country"]))
+            self._apply_to_first(raw_states, lambda s: self._extract_designated_states(s["reg:designation-pct"]["reg:regional"].get("reg:country", [])))
 
             # 10. Titles
             raw_titles = bibliographic_data["reg:invention-title"]
