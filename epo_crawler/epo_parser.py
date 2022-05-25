@@ -16,18 +16,31 @@ class EpoParser:
 
     # === HELPERS ===
     @staticmethod
-    def _apply_to_children(parent, child_name: str, handle_child):
+    def _apply_to_all(element, handle_element):
         """
-        Applies a function `handle_child` to all elements of a list.
+        Applies a function `handle_element` to all elements of a list.
         This abstracts the format specificity of EPO JSON that a list property could be an array
         if containing multiple items or a plain object if only containing one item.
         """
 
-        if isinstance(parent, list):
-            for child in parent:
-                handle_child(child[child_name])
+        if isinstance(element, list):
+            for item in element:
+                handle_element(item)
         else:
-            handle_child(parent[child_name])
+            handle_element(element)
+
+    @staticmethod
+    def _apply_to_first(element, handle_element):
+        """
+        Applies a function `handle_element` to the first element of a list.
+        This abstracts the format specificity of EPO JSON that a list property could be an array
+        if containing multiple items or a plain object if only containing one item.
+        """
+
+        if isinstance(element, list):
+            handle_element(element[0])
+        else:
+            handle_element(element)
 
     @staticmethod
     def _set_timestamp(element, date: str):
@@ -39,9 +52,7 @@ class EpoParser:
     def _extract_status(self, raw_status):
         status = self.patent.statuses.add()
         status.code = int(raw_status["@status-code"])
-
-        if raw_status["@change-date"]:
-            self._set_timestamp(status.changeDate, raw_status["@change-date"])
+        self._set_timestamp(status.changeDate, raw_status.get("@change-date", None))
 
     def _extract_document(self, raw_document):
         document = self.patent.documents.add()
@@ -80,20 +91,11 @@ class EpoParser:
         representative = self.patent.representatives.add()
         self._extract_party(representative, raw_representative)
 
-    def _extract_all_party_members(self, member: Party, parties):
+    def _extract_all_party_members(self, member: Party, raw_parties):
         if not member in [Party.APPLICANT, Party.INVENTOR, Party.REPRESENTATIVE]:
             return
 
-        if f"reg:{member}s" in parties:
-            raw_parties = parties[f"reg:{member}s"]
-
-            if isinstance(raw_parties, list):
-                # Assumption: We are only interested in the latest entries and therefore
-                # parse the first list entry only
-                raw_parties = raw_parties[0][f"reg:{member}"]
-            else:
-                raw_parties = raw_parties[f"reg:{member}"]
-
+        if f"reg:{member}s" in raw_parties:
             extractor = None
 
             if member == Party.APPLICANT:
@@ -103,7 +105,14 @@ class EpoParser:
             elif member == Party.REPRESENTATIVE:
                 extractor = self._extract_representative
 
-            self._apply_to_children(raw_parties, "reg:addressbook", lambda party: extractor(party))
+            # Assumption: We are only interested in the latest entries and therefore parse the first list entry only
+            self._apply_to_first(
+                raw_parties[f"reg:{member}s"],
+                lambda raw_parties_latest: self._apply_to_all(
+                    raw_parties_latest[f"reg:{member}"],
+                    lambda raw_party: extractor(raw_party["reg:addressbook"])
+                )
+            )
 
     def _extract_designated_states(self, raw_states):
         states = map(lambda s: s["$"], raw_states)
@@ -123,20 +132,18 @@ class EpoParser:
             register_document = epo_json["ops:world-patent-data"]["ops:register-search"]["reg:register-documents"]["reg:register-document"]
 
             # 2. Statuses
-            raw_statuses = register_document["reg:ep-patent-statuses"]
-            self._apply_to_children(
-                raw_statuses, "reg:ep-patent-status", lambda status: self._extract_status(status))
+            raw_statuses = register_document["reg:ep-patent-statuses"]["reg:ep-patent-status"]
+            self._apply_to_all(raw_statuses, lambda s: self._extract_status(s))
 
             bibliographic_data = register_document["reg:bibliographic-data"]
 
             # 3. Documents
             raw_documents = bibliographic_data["reg:publication-reference"]
-            self._apply_to_children(
-                raw_documents, "reg:document-id", lambda doc: self._extract_document(doc))
+            self._apply_to_all(raw_documents, lambda doc: self._extract_document(doc["reg:document-id"]))
 
             # 4. Application
-            raw_application = bibliographic_data["reg:application-reference"]["reg:document-id"]
-            self._extract_application(raw_application)
+            raw_application = bibliographic_data["reg:application-reference"]
+            self._apply_to_first(raw_application, lambda a: self._extract_application(a["reg:document-id"]))
 
             # 5. Filing language
             self.patent.filingLanguage = bibliographic_data["reg:language-of-filing"]["$"]
@@ -153,13 +160,7 @@ class EpoParser:
 
             # 9. Designated states
             raw_states = bibliographic_data["reg:designation-of-states"]
-
-            if isinstance(raw_states, list):
-                self._extract_designated_states(
-                    raw_states[0]["reg:designation-pct"]["reg:regional"]["reg:country"])
-            else:
-                self._extract_designated_states(
-                    raw_states["reg:designation-pct"]["reg:regional"]["reg:country"])
+            self._apply_to_first(raw_states, lambda s: self._extract_designated_states(s["reg:designation-pct"]["reg:regional"]["reg:country"]))
 
             # 10. Titles
             raw_titles = bibliographic_data["reg:invention-title"]
