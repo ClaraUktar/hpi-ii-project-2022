@@ -33,6 +33,7 @@ def run(id: int, single: bool):
             logger.debug(epo_json)
 
         if not single and not epo_json:
+            id += 1
             continue
 
         patent = parser.serialize(epo_id, epo_json)
