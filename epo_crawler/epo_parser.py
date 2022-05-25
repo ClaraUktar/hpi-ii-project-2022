@@ -115,7 +115,9 @@ class EpoParser:
             )
 
     def _extract_designated_states(self, raw_states):
-        states = map(lambda s: s["$"], raw_states)
+        states = []
+
+        self._apply_to_all(raw_states, lambda s: states.append(s["$"]))
         self.patent.designatedStates.extend(states)
 
     def _extract_titles(self, raw_titles):
