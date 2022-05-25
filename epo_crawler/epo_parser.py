@@ -147,8 +147,8 @@ class EpoParser:
             raw_application = bibliographic_data["reg:application-reference"]
             self._apply_to_first(raw_application, lambda a: self._extract_application(a["reg:document-id"]))
 
-            # 5. Filing language
-            self.patent.filingLanguage = bibliographic_data["reg:language-of-filing"]["$"]
+            # 5. Filing language (could be absent)
+            self.patent.filingLanguage = bibliographic_data.get("reg:language-of-filing", {}).get("$", "")
 
             # 6. Applicants
             parties = bibliographic_data["reg:parties"]
