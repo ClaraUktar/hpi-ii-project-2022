@@ -71,7 +71,7 @@ class EpoParser:
 
     def _extract_party(self, party, raw_party):
         party.name = raw_party["reg:name"]["$"]
-        party.country = raw_party["reg:address"]["reg:country"]["$"]
+        party.country = raw_party["reg:address"]["reg:country"].get("$", "")
 
         address_fields = filter(lambda item: str(item[0]).startswith(
             "reg:address-"), raw_party["reg:address"].items())
