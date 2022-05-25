@@ -13,7 +13,7 @@ can find the documentation for setting up the project.
 
 ## Architecture
 
-![](architecture.png)
+![](architecture-hrb.png)
 
 ### RB Website
 
@@ -71,20 +71,16 @@ https://ops.epo.org/3.2/rest-services/register/publication/epodoc/{id}/biblio
 
 However, the API endpoint requires authentication via OAuth. Credentials can be obtained on the [EPO website](https://developers.epo.org/user/register).
 
+![](architecture-epo.png)
+
 ### EPO Crawler
 
-The European Patent Office crawler (`epo_crawler`) first authenticates itself with the EPO API by using credentials provided as environment variables (more on that below). It then sends a GET request to the link above with the `epo_id` (`EPxxxxxxx`) passed to it and extracts the information from the response.
-A `Patent` object is subsequently created based on the corresponding [protobuf schema](./proto/bakdata/corporate/v1/patent.proto) and its fields are filled with the extracted data from the website. The crawler then serializes the `Patent` object to bytes so that Kafka can read it and produces it to the `patent-events`
-topic. After that, it increments the `epo_id` value and sends another GET request.
+The European Patent Office crawler (`epo_crawler`) first authenticates itself with the EPO API by using credentials provided as environment variables (more on that below). It then sends a GET request to the link above with the `epo_id` (`EPxxxxxxx`) passed to it and extracts the information from the response. By default, the response is a XML document but by sending a `Accept: application/json` header the document is delivered as JSON. All request handling logic is implemented in the `EpoExtractor` class.
+
+A `Patent` object is subsequently created based on the corresponding [protobuf schema](./proto/bakdata/corporate/v1/patent.proto) and its fields are filled with the extracted data from the website (see `EpoParser`). The crawler then serializes the `Patent` object to bytes so that Kafka can read it and produces it to the `patent-events` topic (see `EpoProducer`). After that, it increments the `epo_id` value and sends another GET request.
 This process continues until either the weekly quota limit of the EPO API is reached or the maximum `epo_id` (EP9999999) is passed.
 
-### patent-events topic
-
-TODO
-
 ### Kafka Connect
-
-TODO: Add EPO
 
 [Kafka Connect](https://docs.confluent.io/platform/current/connect/index.html) is a tool to move large data sets into
 (source) and out (sink) of Kafka.
@@ -92,22 +88,20 @@ Here we only use the Sink connector, which consumes data from a Kafka topic into
 Elasticsearch.
 
 We use the [Elasticsearch Sink Connector](https://docs.confluent.io/kafka-connect-elasticsearch/current/overview.html)
-to move the data from the `coporate-events` topic into the Elasticsearch.
+to move the data from the `coporate-events` and `patent-events` topics into the Elasticsearch.
 
 ## Setup
-
-TODO: Add EPO
 
 This project uses [Poetry](https://python-poetry.org/) as a build tool.
 To install all the dependencies, just run `poetry install`.
 
-This project uses Protobuf for serializing and deserializing objects. We provided a
-simple [protobuf schema](./proto/bakdata/corporate/v1/corporate.proto).
-Furthermore, you need to generate the Python code for the model class from the proto file.
+This project uses Protobuf for serializing and deserializing objects.
+You need to generate the Python code for the model class from the proto file.
 To do so run the [`generate-proto.sh`](./generate-proto.sh) script.
-This script uses the [Protobuf compiler (protoc)](https://grpc.io/docs/protoc-installation/) to generate the model class
-under the `build/gen/bakdata/corporate/v1` folder
-with the name `corporate_pb2.py`.
+This script uses the [Protobuf compiler (protoc)](https://grpc.io/docs/protoc-installation/) to generate the model classes under the `build/gen/bakdata/corporate/v1` folder
+with the name `corporate_pb2.py` and `patent_pb2.py`.
+
+In order to request the EPO portal using the `epo_crawler`, you have to set authorization information using environment variables `EPO_CONSUMER_KEY` and `EPO_CONSUMER_SECRET`. To do so, you can use a `.env` file in the root directory, which will be loaded by the `epo_crawler` automatically.
 
 ## Run
 
@@ -125,16 +119,11 @@ to check the status of the services.
 
 ### Kafka Connect
 
-TODO: Add EPO
-
 After all the services are up and running, you need to configure Kafka Connect to use the Elasticsearch sink connector.
-The config file is a JSON formatted file. We provided a [basic configuration file](./connect/elastic-sink.json).
-You can find more information about the configuration properties on
-the [official documentation page](https://docs.confluent.io/kafka-connect-elasticsearch/current/overview.html).
+The config file is a JSON formatted file. We provided basic configuration files for [corporate events](./connect/elastic-sink-corporate.json) and for [patent events](./connect/elastic-sink-patent.json).
+You can find more information about the configuration properties on the [official documentation page](https://docs.confluent.io/kafka-connect-elasticsearch/current/overview.html).
 
-To start the connector, you need to push the JSON config file to Kafka. You can either use the UI dashboard in Kowl or
-use the [bash script provided](./connect/push-config.sh). It is possible to remove a connector by deleting it
-through Kowl's UI dashboard or calling the deletion API in the [bash script provided](./connect/delete-config.sh).
+To start the connector, you need to push the JSON config files to Kafka. You can either use the UI dashboard in Kowl or use the [bash script provided](./connect/push-config.sh). It is possible to remove a connector by deleting it through Kowl's UI dashboard or calling the deletion API in the [bash script provided](./connect/delete-config.sh).
 
 ### RB Crawler
 
@@ -162,7 +151,31 @@ Options:
   --help                          Show this message and exit.
 ```
 
-TODO: Add EPO
+### EPO Crawler
+
+You can start the crawler with the command below:
+
+```shell
+poetry run python epo_crawler/main.py -i $EPO_ID
+```
+
+The `-i` (or `--id`) option is an integer between 1 and 9_999_999, which determines the initial publication ID in the EPO to be crawled.
+
+The `-s` (or `--single`) flag can be used to only crawl a single patent entry with the given ID. This is useful for debugging if crawling for one specific patent fails.
+
+You can use the `--help` option to see the usage:
+
+```
+Usage: main.py [OPTIONS]
+
+Options:
+  -i, --id INTEGER RANGE  The patent ID (publication) to initialize the crawl
+                          from (number between 1 and 9999999)  [1<=x<=9999999;
+                          required]
+  -s, --single            Whether a single patent should be crawled. Useful
+                          for debugging.
+  --help                  Show this message and exit.
+```
 
 ## Query data
 
