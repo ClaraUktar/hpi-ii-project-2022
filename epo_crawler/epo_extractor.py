@@ -1,9 +1,17 @@
 import logging
 import os
 import requests
+import requests.adapters
 from sys import exit
 
 logger = logging.getLogger(__name__)
+
+# We have to increase the maximum pool size for connections as it otherwise might happen
+# that the crawler exits after some hundred requests. Also, it seems to improve performance
+# in terms of request/response time.
+session = requests.Session()
+adapter = requests.adapters.HTTPAdapter(pool_maxsize=100)
+session.mount('https://', adapter)
 
 
 class EpoExtractor:
@@ -29,11 +37,12 @@ class EpoExtractor:
         data = {"grant_type": "client_credentials"}
 
         try:
-            response = requests.post(
+            response = session.post(
                 url,
                 data,
                 auth=(consumer_key, consumer_secret),
                 headers=headers,
+                timeout=10
             )
 
             if response.status_code != 200:
@@ -58,7 +67,7 @@ class EpoExtractor:
                 "Authorization": f"Bearer {self.access_token}",
             }
 
-            response = requests.get(url=url, headers=headers)
+            response = session.get(url=url, headers=headers, timeout=10)
 
             if response.status_code == 200:
                 return response.json()

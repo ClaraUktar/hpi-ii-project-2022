@@ -6,7 +6,6 @@ from epo_crawler.epo_extractor import EpoExtractor
 from epo_crawler.epo_parser import EpoParser
 from epo_crawler.epo_producer import EpoProducer
 from dotenv import load_dotenv
-from time import sleep
 
 logging.basicConfig(
     level=os.environ.get("LOGLEVEL", "INFO"), format="%(asctime)s | %(name)s | %(levelname)s | %(message)s"
@@ -46,7 +45,6 @@ def run(id: int, single: bool):
         if single:
             break
 
-        sleep(0.5)
         id += 1
 
         # Stop crawling if maximum id reached
