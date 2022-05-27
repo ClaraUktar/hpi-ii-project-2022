@@ -70,7 +70,7 @@ class EpoParser:
         self._set_timestamp(application.filingDate, raw_application["reg:date"]["$"])
 
     def _extract_party(self, party, raw_party):
-        party.name = raw_party["reg:name"]["$"]
+        party.name = raw_party.get("reg:name", {}).get("$", "")
         party.country = raw_party["reg:address"]["reg:country"].get("$", "")
 
         address_fields = filter(lambda item: str(item[0]).startswith(
