@@ -4,7 +4,9 @@ from time import sleep
 import requests
 from parsel import Selector
 
-from build.gen.bakdata.corporate.v1.corporate_pb2 import Corporate, Status
+import re
+
+from build.gen.bakdata.corporate.v1.corporate_pb2 import Announcement, Status
 from rb_producer import RbProducer
 
 log = logging.getLogger(__name__)
@@ -25,17 +27,17 @@ class RbExtractor:
                     log.info("The end has reached")
                     break
                 selector = Selector(text=text)
-                corporate = Corporate()
-                corporate.rb_id = self.rb_id
-                corporate.state = self.state
-                corporate.reference_id = self.extract_company_reference_number(selector)
+                announcement = Announcement()
+                announcement.rb_id = self.rb_id
+                announcement.state = self.state
+                announcement.reference_id = self.extract_company_reference_number(selector)
                 event_type = selector.xpath("/html/body/font/table/tr[3]/td/text()").get()
-                corporate.event_date = selector.xpath("/html/body/font/table/tr[4]/td/text()").get()
-                corporate.id = f"{self.state}_{self.rb_id}"
+                announcement.event_date = selector.xpath("/html/body/font/table/tr[4]/td/text()").get()
+                announcement.id = f"{self.state}_{self.rb_id}"
                 raw_text: str = selector.xpath("/html/body/font/table/tr[6]/td/text()").get()
-                self.handle_events(corporate, event_type, raw_text)
+                self.handle_events(announcement, event_type, raw_text)
                 self.rb_id = self.rb_id + 1
-                log.debug(corporate)
+                log.debug(announcement)
             except Exception as ex:
                 log.error(f"Skipping {self.rb_id} in state {self.state}")
                 log.error(f"Cause: {ex}")
@@ -53,30 +55,68 @@ class RbExtractor:
     def extract_company_reference_number(selector: Selector) -> str:
         return ((selector.xpath("/html/body/font/table/tr[1]/td/nobr/u/text()").get()).split(": ")[1]).strip()
 
-    def handle_events(self, corporate, event_type, raw_text):
+    def handle_events(self, announcement, event_type, raw_text):
         if event_type == "Neueintragungen":
-            self.handle_new_entries(corporate, raw_text)
+            self.handle_new_entries(announcement, raw_text)
         elif event_type == "Veränderungen":
-            self.handle_changes(corporate, raw_text)
+            self.handle_changes(announcement, raw_text)
         elif event_type == "Löschungen":
-            self.handle_deletes(corporate)
+            self.handle_deletes(announcement, raw_text)
 
-    def handle_new_entries(self, corporate: Corporate, raw_text: str) -> Corporate:
-        log.debug(f"New company found: {corporate.id}")
-        corporate.event_type = "create"
-        corporate.information = raw_text
-        corporate.status = Status.STATUS_ACTIVE
-        self.producer.produce_to_topic(corporate=corporate)
+    def handle_new_entries(self, announcement: Announcement, raw_text: str) -> Announcement:
+        log.debug(f"New company found: {announcement.id}")
+        announcement.event_type = "create"
+        announcement.information = raw_text
 
-    def handle_changes(self, corporate: Corporate, raw_text: str):
-        log.debug(f"Changes are made to company: {corporate.id}")
-        corporate.event_type = "update"
-        corporate.status = Status.STATUS_ACTIVE
-        corporate.information = raw_text
-        self.producer.produce_to_topic(corporate=corporate)
+        company = announcement.company
+        name = re.search("^(HRB [\w ]*: )?(.+?),")
+        address = re.search("^(.+?),(.+?), (.+?)\.")
+        details = re.search("(Geschäftsanschrift: .+?)\. (.+?)\. ([\w ]*: )?(.+?) EUR\.")
 
-    def handle_deletes(self, corporate: Corporate):
-        log.debug(f"Company {corporate.id} is inactive")
-        corporate.event_type = "delete"
-        corporate.status = Status.STATUS_INACTIVE
-        self.producer.produce_to_topic(corporate=corporate)
+        if name is None or address is None or details is None:
+            raise ValueError
+
+        company.name = name.group(2)
+        company.address = address.group(3)
+        company.description = details.group(2)
+        company.capital = float(details.group(4).replace(".", "").replace(",", "."))
+
+        announcement.status = Status.STATUS_ACTIVE
+        self.producer.produce_to_topic(announcement=announcement)
+
+    def handle_changes(self, announcement: Announcement, raw_text: str):
+        log.debug(f"Changes are made to company: {announcement.id}")
+        announcement.event_type = "update"
+        announcement.status = Status.STATUS_ACTIVE
+        announcement.information = raw_text
+
+        company = announcement.company
+        name = re.search("^(HRB [\w ]*: )?(.+?),")
+        address = re.search("^(.+?),(.+?), (.+?)\.")
+
+        if name is None or address is None:
+            raise ValueError
+
+        company.name = name.group(2)
+        company.address = address.group(3)
+
+        self.producer.produce_to_topic(announcement=announcement)
+
+    def handle_deletes(self, announcement: Announcement, raw_text: str):
+        log.debug(f"Company {announcement.id} is inactive")
+        announcement.event_type = "delete"
+        announcement.status = Status.STATUS_INACTIVE
+
+        announcement.information = raw_text
+
+        company = announcement.company
+        name = re.search("^(HRB [\w ]*: )?(.+?),")
+        address = re.search("^(.+?),(.+?), (.+?)\.")
+
+        if name is None or address is None:
+            raise ValueError
+
+        company.name = name.group(2)
+        company.address = address.group(3)
+
+        self.producer.produce_to_topic(announcement=announcement)

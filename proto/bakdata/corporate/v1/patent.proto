@@ -40,7 +40,7 @@ message Status {
   }
 
   Code code = 1;
-  optional google.protobuf.Timestamp changeDate = 2;
+  google.protobuf.Timestamp changeDate = 2;
 }
 
 message Document {
