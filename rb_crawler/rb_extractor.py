@@ -11,6 +11,9 @@ from rb_producer import RbProducer
 
 log = logging.getLogger(__name__)
 
+NAME_REGEX = "^(HRB [\w ]*: )?(.+?),"
+ADDRESS_REGEX = "^(.+?), (.+? \d{5} .+?\)?)\."
+
 
 class RbExtractor:
     def __init__(self, start_rb_id: int, state: str):
@@ -21,7 +24,9 @@ class RbExtractor:
     def extract(self):
         while True:
             try:
-                log.info(f"Sending Request for: {self.rb_id} and state: {self.state}")
+                log.info(
+                    f"Sending Request for: {self.rb_id} and state: {self.state}"
+                )
                 text = self.send_request()
                 if "Falsche Parameter" in text:
                     log.info("The end has reached")
@@ -30,11 +35,19 @@ class RbExtractor:
                 announcement = Announcement()
                 announcement.rb_id = self.rb_id
                 announcement.state = self.state
-                announcement.reference_id = self.extract_company_reference_number(selector)
-                event_type = selector.xpath("/html/body/font/table/tr[3]/td/text()").get()
-                announcement.event_date = selector.xpath("/html/body/font/table/tr[4]/td/text()").get()
+                announcement.reference_id = (
+                    self.extract_company_reference_number(selector)
+                )
+                event_type = selector.xpath(
+                    "/html/body/font/table/tr[3]/td/text()"
+                ).get()
+                announcement.event_date = selector.xpath(
+                    "/html/body/font/table/tr[4]/td/text()"
+                ).get()
                 announcement.id = f"{self.state}_{self.rb_id}"
-                raw_text: str = selector.xpath("/html/body/font/table/tr[6]/td/text()").get()
+                raw_text: str = selector.xpath(
+                    "/html/body/font/table/tr[6]/td/text()"
+                ).get()
                 self.handle_events(announcement, event_type, raw_text)
                 self.rb_id = self.rb_id + 1
                 log.debug(announcement)
@@ -53,7 +66,36 @@ class RbExtractor:
 
     @staticmethod
     def extract_company_reference_number(selector: Selector) -> str:
-        return ((selector.xpath("/html/body/font/table/tr[1]/td/nobr/u/text()").get()).split(": ")[1]).strip()
+        return (
+            (
+                selector.xpath(
+                    "/html/body/font/table/tr[1]/td/nobr/u/text()"
+                ).get()
+            ).split(": ")[1]
+        ).strip()
+
+    @staticmethod
+    def extract_description(raw_text: str) -> str:
+        result = ""
+
+        if "Gegenstand:" in raw_text:
+            result = re.search("Gegenstand: (.+)\. .+(EUR|DM)", raw_text)
+        elif "Geschäftsanschrift:" in raw_text:
+            result = re.search(
+                "Geschäftsanschrift: .+?\. (.+?)\. ([\w ]*: )?.+? (EUR|DM)",
+                raw_text,
+            )
+
+        if result:
+            return result.group(1)
+        return ""
+
+    @staticmethod
+    def extract_capital(raw_text: str) -> str:
+        result = re.search("[\.:] ([0-9,\.]+) (EUR|DM)", raw_text)
+        if result is None:
+            return "0"
+        return result.group(1)
 
     def handle_events(self, announcement, event_type, raw_text):
         if event_type == "Neueintragungen":
@@ -63,23 +105,26 @@ class RbExtractor:
         elif event_type == "Löschungen":
             self.handle_deletes(announcement, raw_text)
 
-    def handle_new_entries(self, announcement: Announcement, raw_text: str) -> Announcement:
+    def handle_new_entries(
+        self, announcement: Announcement, raw_text: str
+    ) -> Announcement:
         log.debug(f"New company found: {announcement.id}")
         announcement.event_type = "create"
         announcement.information = raw_text
 
         company = announcement.company
-        name = re.search("^(HRB [\w ]*: )?(.+?),")
-        address = re.search("^(.+?),(.+?), (.+?)\.")
-        details = re.search("(Geschäftsanschrift: .+?)\. (.+?)\. ([\w ]*: )?(.+?) EUR\.")
+        name = re.search(NAME_REGEX, raw_text)
+        address = re.search(ADDRESS_REGEX, raw_text)
 
-        if name is None or address is None or details is None:
-            raise ValueError
+        if name is None or address is None:
+            raise ValueError("Name or address could not be extracted.")
 
         company.name = name.group(2)
-        company.address = address.group(3)
-        company.description = details.group(2)
-        company.capital = float(details.group(4).replace(".", "").replace(",", "."))
+        company.address = address.group(2)
+        company.description = self.extract_description(raw_text)
+        company.capital = float(
+            self.extract_capital(raw_text).replace(".", "").replace(",", ".")
+        )
 
         announcement.status = Status.STATUS_ACTIVE
         self.producer.produce_to_topic(announcement=announcement)
@@ -91,14 +136,14 @@ class RbExtractor:
         announcement.information = raw_text
 
         company = announcement.company
-        name = re.search("^(HRB [\w ]*: )?(.+?),")
-        address = re.search("^(.+?),(.+?), (.+?)\.")
+        name = re.search(NAME_REGEX, raw_text)
+        address = re.search(ADDRESS_REGEX, raw_text)
 
         if name is None or address is None:
             raise ValueError
 
         company.name = name.group(2)
-        company.address = address.group(3)
+        company.address = address.group(2)
 
         self.producer.produce_to_topic(announcement=announcement)
 
@@ -110,13 +155,13 @@ class RbExtractor:
         announcement.information = raw_text
 
         company = announcement.company
-        name = re.search("^(HRB [\w ]*: )?(.+?),")
-        address = re.search("^(.+?),(.+?), (.+?)\.")
+        name = re.search(NAME_REGEX, raw_text)
+        address = re.search(ADDRESS_REGEX, raw_text)
 
         if name is None or address is None:
             raise ValueError
 
         company.name = name.group(2)
-        company.address = address.group(3)
+        company.address = address.group(2)
 
         self.producer.produce_to_topic(announcement=announcement)
