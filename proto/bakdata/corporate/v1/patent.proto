@@ -1,7 +1,5 @@
 syntax = "proto3";
 
-import "google/protobuf/timestamp.proto";
-
 package bakdata.corporate.v1;
 
 message Patent {
@@ -40,7 +38,7 @@ message Status {
   }
 
   Code code = 1;
-  google.protobuf.Timestamp changeDate = 2;
+  string changeDate = 2;
 }
 
 message Document {
@@ -48,12 +46,12 @@ message Document {
   string language = 2;    // e.g. DE
   string docNumber = 3;   // e.g. 0000001
   string kind = 4;        // e.g. A1 (application), B1 (specification)
-  google.protobuf.Timestamp date = 5;
+  string date = 5;
 }
 
 message Application {
   string applicationId = 1;
-  google.protobuf.Timestamp filingDate = 2;
+  string filingDate = 2;
 }
 
 // Applicant, Inventor, Representative

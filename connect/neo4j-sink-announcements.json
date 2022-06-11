@@ -1,0 +1,18 @@
+{
+    "name": "Neo4jSinkConnector-Announcements",
+    "config": {
+        "connector.class": "streams.kafka.connect.sink.Neo4jSinkConnector",
+        "value.converter.schemas.enable": false,
+        "topics": "announcements",
+        "neo4j.topic.cypher.announcements": "MERGE (a:Announcement { id: event.id }) SET a.rbId = event.rb_id, a.state = event.state, a.refId = event.reference_id, a.eventDate = event.event_date, a.eventType = event.event_type, a.status = event.status, a.information = event.information MERGE (c:Company { name: event.company.name }) SET c.address = coalesce(event.company.address, c.address), c.description = coalesce(c.description, event.company.description), c.capital = coalesce(c.capital, event.company.capital) MERGE (a)-[:IS_MADE_FOR]->(c)",
+        "errors.retry.timeout": "-1",
+        "errors.retry.delay.max.ms": "1000",
+        "errors.tolerance": "all",
+        "errors.log.enable": true,
+        "errors.log.include.messages": true,
+        "neo4j.server.uri": "bolt://neo4j:7687",
+        "neo4j.authentication.basic.username": "neo4j",
+        "neo4j.authentication.basic.password": "test",
+        "neo4j.encryption.enabled": false
+    }
+}

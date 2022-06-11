@@ -1,0 +1,18 @@
+{
+    "name": "Neo4jSinkConnector-Patents",
+    "config": {
+        "connector.class": "streams.kafka.connect.sink.Neo4jSinkConnector",
+        "value.converter.schemas.enable": false,
+        "topics": "patents",
+        "neo4j.topic.cypher.patents": "MERGE (p:Patent { publicationId: event.publicationId }) SET p.applicationId = event.application.applicationId, p.filingDate = event.application.filingDate, p.filingLanguage = event.filingLanguage, p.designatedStates = event.designatedStates FOREACH (status IN event.statuses | MERGE (s:Status { code: status.code}) SET s.changeDate = status.changeDate MERGE (p)-[:HAS_STATUS]->(s)) FOREACH (document IN event.documents | MERGE (d:Document { docNumber: document.docNumber }) SET d.country = document.country, d.language = document.language, d.kind = document.kind, d.date = document.date MERGE (p)-[:HAS_DOCUMENT]->(d)) FOREACH (applicant IN event.applicants | MERGE (c:Company { name: applicant.name }) SET c.patentAddress = coalesce(applicant.address, c.patentAddress), c.country = coalesce(applicant.country, c.country) MERGE (p)-[:IS_FROM_APPLICANT]->(c)) FOREACH (inventor IN event.inventors | MERGE (i:Inventor { name: inventor.name }) SET i.address = coalesce(inventor.address, i.address), i.country = coalesce(inventor.country, i.country) MERGE (p)-[:IS_FROM_INVENTOR]->(i)) FOREACH (representative IN event.representatives | MERGE (r:Representative { name: representative.name }) SET r.address = coalesce(representative.address, r.address), r.country = coalesce(representative.country, r.country) MERGE (p)-[:HAS_REPRESENTATIVE]->(r)) WITH p, event.titles as titles UNWIND keys(titles) as titleLang WITH p, titles, titleLang, \"title\" + toUpper(titleLang) as newKey CALL apoc.create.setProperty(p, newKey, titles[titleLang]) YIELD node RETURN node",
+        "errors.retry.timeout": "-1",
+        "errors.retry.delay.max.ms": "1000",
+        "errors.tolerance": "all",
+        "errors.log.enable": true,
+        "errors.log.include.messages": true,
+        "neo4j.server.uri": "bolt://neo4j:7687",
+        "neo4j.authentication.basic.username": "neo4j",
+        "neo4j.authentication.basic.password": "test",
+        "neo4j.encryption.enabled": false
+    }
+}

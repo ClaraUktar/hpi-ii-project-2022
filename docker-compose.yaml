@@ -101,7 +101,7 @@ services:
             - zookeeper
             - kafka
             - schema-registry
-            - elasticsearch
+            - neo4j
         ports:
             - "8083:8083"
         environment:
@@ -124,14 +124,13 @@ services:
             CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: "1"
             CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: "1"
             CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components,/data/connect-jars
-        volumes:
-            - ./connect/elastic-sink.json:/connect/elastic-sink.json
         command:
             - bash
             - -c
             - |
                 echo "Installing Connector"
                 confluent-hub install confluentinc/kafka-connect-elasticsearch:11.1.10 --no-prompt
+                confluent-hub install neo4j/kafka-connect-neo4j:2.0.2 --no-prompt
                 confluent-hub install confluentinc/kafka-connect-protobuf-converter:7.1.0 --no-prompt
                 #
                 echo "Launching Kafka Connect worker"
@@ -139,13 +138,30 @@ services:
                 #
                 sleep infinity
 
-    elasticsearch:
-        image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2
-        container_name: elasticsearch
-        hostname: elasticsearch
-        environment:
-            - discovery.type=single-node
-            - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    # elasticsearch:
+    #     image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2
+    #     container_name: elasticsearch
+    #     hostname: elasticsearch
+    #     environment:
+    #         - discovery.type=single-node
+    #         - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    #     ports:
+    #         - "9200:9200"
+    #         - "9300:9300"
+
+    neo4j:
+        image: neo4j:4.4.7
+        container_name: neo4j
+        hostname: neo4j
         ports:
-            - "9200:9200"
-            - "9300:9300"
+            - 7474:7474
+            - 7687:7687
+        environment:
+            NEO4JLABS_PLUGINS: '["apoc"]'
+        volumes:
+            - neo4j_data:/data
+            - ./import:/var/lib/neo4j/import
+            - ./neo4j-init-files:/var/lib/neo4j/conf
+
+volumes:
+    neo4j_data:
