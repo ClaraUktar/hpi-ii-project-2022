@@ -3,3 +3,8 @@ build/gen/bakdata/corporate/v1/*_pb2.py
 .idea
 __pycache__/
 .env
+
+# Neo4j dirs
+import/
+neo4j-init-files/
+backups/
