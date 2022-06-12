@@ -48,6 +48,10 @@ It then serializes the `Announcement` object to bytes so that Kafka can read it 
 topic. After that, it increments the `rb_id` value and sends another GET request.
 This process continues until the end of the announcements is reached, and the crawler will stop automatically.
 
+### SQLite Dump Crawler
+
+The SQLite dump crawler fetches HRB data from a SQLite db file and produces the entries to the `announcements` topic in Kafka.
+
 ### announcements topic
 
 The `announcements` holds all the events (announcements) produced by the `rb_crawler`. Each message in a Kafka topic
@@ -80,6 +84,10 @@ The European Patent Office crawler (`epo_crawler`) first authenticates itself wi
 A `Patent` object is subsequently created based on the corresponding [protobuf schema](./proto/bakdata/corporate/v1/patent.proto) and its fields are filled with the extracted data from the website (see `EpoParser`). The crawler then serializes the `Patent` object to bytes so that Kafka can read it and produces it to the `patent-events` topic (see `EpoProducer`). After that, it increments the `epo_id` value and sends another GET request.
 This process continues until either the weekly quota limit of the EPO API is reached or the maximum `epo_id` (EP9999999) is passed.
 
+### ES Dump Crawler
+
+The ES dump crawler fetches EPO data from a ElasticSearch dump file created using [elasticdump](https://github.com/elasticsearch-dump/elasticsearch-dump) and produces the entries to the `patents` topic in Kafka.
+
 ### Kafka Connect
 
 [Kafka Connect](https://docs.confluent.io/platform/current/connect/index.html) is a tool to move large data sets into
@@ -107,21 +115,13 @@ In order to request the EPO portal using the `epo_crawler`, you have to set auth
 
 ### Infrastructure
 
-Use `docker-compose up -d` to start all the services: [Zookeeper](https://zookeeper.apache.org/)
-, [Kafka](https://kafka.apache.org/), [Schema
-Registry](https://docs.confluent.io/platform/current/schema-registry/index.html)
-, [Kafka REST Proxy](<(https://github.com/confluentinc/kafka-rest)>), [Kowl](https://github.com/redpanda-data/kowl),
-[Kafka Connect](https://docs.confluent.io/platform/current/connect/index.html),
-and [Elasticsearch](https://www.elastic.co/elasticsearch/). Depending on your system, it takes a couple of minutes
-before the services are up and running. You can use a tool
-like [lazydocker](https://github.com/jesseduffield/lazydocker)
-to check the status of the services.
+Use `docker compose up` to start all the services: [Zookeeper](https://zookeeper.apache.org/), [Kafka](https://kafka.apache.org/), [Schema Registry](https://docs.confluent.io/platform/current/schema-registry/index.html), [Kafka REST Proxy](<(https://github.com/confluentinc/kafka-rest)>), [Kowl](https://github.com/redpanda-data/kowl), [Kafka Connect](https://docs.confluent.io/platform/current/connect/index.html), and [Neo4j](https://neo4j.com/). Depending on your system, it takes a couple of minutes before the services are up and running. You can use a tool like [lazydocker](https://github.com/jesseduffield/lazydocker) to check the status of the services.
 
 ### Kafka Connect
 
-After all the services are up and running, you need to configure Kafka Connect to use the Elasticsearch sink connector.
-The config file is a JSON formatted file. We provided basic configuration files for [corporate events](./connect/elastic-sink-corporate.json) and for [patent events](./connect/elastic-sink-patent.json).
-You can find more information about the configuration properties on the [official documentation page](https://docs.confluent.io/kafka-connect-elasticsearch/current/overview.html).
+After all the services are up and running, you need to configure Kafka Connect to use the Neo4j sink connector.
+The config file is a JSON formatted file. We provided basic configuration files for [announcements](./connect/neo4j-sink-announcements.json) and for [patents](./connect/neo4j-sink-patents.json).
+You can find more information about the configuration properties on the [official documentation page](https://neo4j.com/labs/kafka/4.0/kafka-connect/).
 
 To start the connector, you need to push the JSON config files to Kafka. You can either use the UI dashboard in Kowl or use the [bash script provided](./connect/push-config.sh). It is possible to remove a connector by deleting it through Kowl's UI dashboard or calling the deletion API in the [bash script provided](./connect/delete-config.sh).
 
@@ -151,6 +151,30 @@ Options:
   --help                          Show this message and exit.
 ```
 
+### SQLite Dump Crawler
+
+You can start the crawler with the command below:
+
+```shell
+poetry run python sqlite_dump_crawler/main.py -f $FILE
+```
+
+The `--file` option is a file path to a SQLite dump file containing HRB data entries (crawled by the RB Crawler).
+
+The `--skip` option takes an integer. This integer defines how many entries of the SQLite dump file should be skipped.
+
+You can use the `--help` option to see the usage:
+
+```
+Usage: main.py [OPTIONS]
+
+Options:
+  -f, --file TEXT     A path to a SQLite file containing HRB announcements.
+                      [required]
+  -s, --skip INTEGER  A number how much entries should be skipped
+  --help              Show this message and exit.
+```
+
 ### EPO Crawler
 
 You can start the crawler with the command below:
@@ -177,41 +201,48 @@ Options:
   --help                  Show this message and exit.
 ```
 
+### ES Dump Crawler
+
+You can start the crawler with the command below:
+
+```shell
+poetry run python es_dump_crawler/main.py -f $FILE
+```
+
+The `--file` option is a file path to an ElasticSearch dump file created with elasticdump containing EPO data entries (crawled by the EPO Crawler).
+
+You can use the `--help` option to see the usage:
+
+```
+Usage: main.py [OPTIONS]
+
+Options:
+  -f, --file TEXT  A path to an elasticdump file containing EPO patents.
+                   [required]
+  --help           Show this message and exit.
+```
+
 ## Query data
 
 ### Kowl
 
-[Kowl](https://github.com/redpanda-data/kowl) is a web application that helps you manage and debug your Kafka workloads
-effortlessly. You can create, update, and delete Kafka resources like Topics and Kafka Connect configs.
-You can see Kowl's dashboard in your browser under http://localhost:8080.
+[Kowl](https://github.com/redpanda-data/kowl) is a web application that helps you manage and debug your Kafka workloads effortlessly. You can create, update, and delete Kafka resources like Topics and Kafka Connect configs. You can see Kowl's dashboard in your browser under http://localhost:8080.
 
-### Elasticsearch
+### Neo4j
 
-To query the data from Elasticsearch, you can use
-the [query DSL](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl.html) of elastic. For example:
+To query the data from Neo4j, you can use the browser GUI ([http://localhost:7474](http://localhost:7474)) of Neo4j. Connect to the database with `neo4j` as username and `test` as password. For example:
 
-```shell
-curl -X GET "localhost:9200/_search?pretty" -H 'Content-Type: application/json' -d'
-{
-    "query": {
-        "match": {
-            <field>
-        }
-    }
-}
-'
+```cypher
+MATCH (a:Announcement)-->(c:Company { name: <name> })<--(p:Patent)
+RETURN a, c, p
 ```
 
-`<field>` is the field you wish to search. For example:
-
-```
-"reference_id":"HRB 41865"
-```
+`<name>` is the company name you wish to search. For example: `"SAP AG"`.
 
 ## Teardown
 
 You can stop and remove all the resources by running:
 
 ```shell
-docker-compose down
+docker compose down
 ```
