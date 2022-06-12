@@ -5,7 +5,7 @@ from build.gen.bakdata.corporate.v1.corporate_pb2 import Announcement, Status
 
 
 NAME_REGEX = "^(HRB [\w ]*: )?(.+?),"
-ADDRESS_REGEX = "^(.+?), (.+? \d{5} .+?\)?)\."
+ADDRESS_REGEX = "^(.+?), (.+?\d{5}.*?\)?)\."
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,8 @@ class SqliteDumpParser:
 
             return announcement
         except Exception as ex:
-            logger.error("Serializing HRB entry failed", ex)
+            logger.error("Serializing HRB entry failed")
+            logger.debug(ex)
             return None
 
     @staticmethod
@@ -75,7 +76,7 @@ class SqliteDumpParser:
         address = re.search(ADDRESS_REGEX, raw_text)
 
         if name is None or address is None:
-            raise ValueError("Name or address could not be extracted.")
+            raise ValueError("create", name, address, raw_text)
 
         company.name = name.group(2)
         company.address = address.group(2)
@@ -93,7 +94,7 @@ class SqliteDumpParser:
         address = re.search(ADDRESS_REGEX, raw_text)
 
         if name is None or address is None:
-            raise ValueError
+            raise ValueError("update", name, address, raw_text)
 
         company.name = name.group(2)
         company.address = address.group(2)
@@ -102,15 +103,15 @@ class SqliteDumpParser:
         logger.debug(f"Company {announcement.id} is inactive")
         announcement.event_type = "delete"
         announcement.status = Status.STATUS_INACTIVE
-
         announcement.information = raw_text
 
-        company = announcement.company
-        name = re.search(NAME_REGEX, raw_text)
-        address = re.search(ADDRESS_REGEX, raw_text)
+        if raw_text:
+            company = announcement.company
+            name = re.search(NAME_REGEX, raw_text)
+            address = re.search(ADDRESS_REGEX, raw_text)
 
-        if name is None or address is None:
-            raise ValueError
+            if name is None or address is None:
+                raise ValueError("delete", name, address, raw_text)
 
-        company.name = name.group(2)
-        company.address = address.group(2)
+            company.name = name.group(2)
+            company.address = address.group(2)
