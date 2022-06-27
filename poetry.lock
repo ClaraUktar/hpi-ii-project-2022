@@ -443,6 +443,17 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "neo4j"
+version = "4.4.4"
+description = "Neo4j Bolt driver for Python"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.dependencies]
+pytz = "*"
+
+[[package]]
 name = "outcome"
 version = "1.1.0"
 description = "Capture the outcome of Python function calls."
@@ -609,6 +620,14 @@ python-versions = ">=3.5"
 
 [package.extras]
 cli = ["click (>=5.0)"]
+
+[[package]]
+name = "pytz"
+version = "2022.1"
+description = "World timezone definitions, modern and historical"
+category = "main"
+optional = false
+python-versions = "*"
 
 [[package]]
 name = "queuelib"
@@ -901,7 +920,7 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "74798e83ecb604a73686e7ebbb73994e235ad8f27ad84a23099d414c76c2e321"
+content-hash = "091b22386a0b972153c378693b7ccc5ab21bc9445ca215c8a7cdb614f1499708"
 
 [metadata.files]
 async-generator = [
@@ -1190,6 +1209,9 @@ mypy-extensions = [
     {file = "mypy_extensions-0.4.3-py2.py3-none-any.whl", hash = "sha256:090fedd75945a69ae91ce1303b5824f428daf5a028d2f6ab8a299250a846f15d"},
     {file = "mypy_extensions-0.4.3.tar.gz", hash = "sha256:2d82818f5bb3e369420cb3c4060a7970edba416647068eb4c5343488a6c604a8"},
 ]
+neo4j = [
+    {file = "neo4j-4.4.4.tar.gz", hash = "sha256:4f8982028021f9fc5e3e3605e6368302d6a97ea75a48666ae49fcc974113a3c8"},
+]
 outcome = [
     {file = "outcome-1.1.0-py2.py3-none-any.whl", hash = "sha256:c7dd9375cfd3c12db9801d080a3b63d4b0a261aa996c4c13152380587288d958"},
     {file = "outcome-1.1.0.tar.gz", hash = "sha256:e862f01d4e626e63e8f92c38d1f8d5546d3f9cce989263c521b2e7990d186967"},
@@ -1301,6 +1323,10 @@ pysocks = [
 python-dotenv = [
     {file = "python-dotenv-0.20.0.tar.gz", hash = "sha256:b7e3b04a59693c42c36f9ab1cc2acc46fa5df8c78e178fc33a8d4cd05c8d498f"},
     {file = "python_dotenv-0.20.0-py3-none-any.whl", hash = "sha256:d92a187be61fe482e4fd675b6d52200e7be63a12b724abbf931a40ce4fa92938"},
+]
+pytz = [
+    {file = "pytz-2022.1-py2.py3-none-any.whl", hash = "sha256:e68985985296d9a66a881eb3193b0906246245294a881e7c8afe623866ac6a5c"},
+    {file = "pytz-2022.1.tar.gz", hash = "sha256:1e760e2fe6a8163bc0b3d9a19c4f84342afa0a2affebfaa84b01b978a02ecaa7"},
 ]
 queuelib = [
     {file = "queuelib-1.6.2-py2.py3-none-any.whl", hash = "sha256:4b96d48f650a814c6fb2fd11b968f9c46178b683aad96d68f930fe13a8574d19"},

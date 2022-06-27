@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package bakdata.corporate.v2;
+
+message Company {
+  string name = 1;
+  string address = 2;
+  string patentAddress = 3;
+  string country = 4;
+  string description = 5;
+  float capital = 6;
+}

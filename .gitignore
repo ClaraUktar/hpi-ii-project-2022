@@ -1,8 +1,9 @@
 venv/
-build/gen/bakdata/corporate/v1/*_pb2.py
+build/gen/bakdata/corporate/v*/*_pb2.py
 .idea
 __pycache__/
 .env
+**.DS_Store
 
 # Neo4j dirs
 import/
