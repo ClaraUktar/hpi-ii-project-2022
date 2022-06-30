@@ -23,16 +23,14 @@ class Neo4jConnector:
 
         return announcement
 
-    def get_all_announcements_for_ref_id(
-        self, ref_id: str, announcement_id: str
+    def get_all_announcements_by_ref_id(
+        self, announcement: Announcement
     ) -> List[Announcement]:
         announcements = []
 
         with self.driver.session() as session:
             announcements = session.read_transaction(
-                self._read_all_annoucements_for_ref_id_except_id,
-                ref_id,
-                announcement_id,
+                self._read_all_announcements_by_ref_id, announcement
             )
 
         return announcements
@@ -44,7 +42,7 @@ class Neo4jConnector:
 
         with self.driver.session() as session:
             company = session.read_transaction(
-                self._read_company_related_to_annoucement_ids,
+                self._read_company_related_to_announcement_ids,
                 announcement_ids,
             )
 
@@ -59,12 +57,13 @@ class Neo4jConnector:
         return result.single()["a"]
 
     @staticmethod
-    def _read_all_annoucements_for_ref_id_except_id(tx, ref_id, id):
+    def _read_all_announcements_by_ref_id(tx, announcement):
         result = tx.run(
             f"""
-            MATCH (a:Announcement{{refId: "{ref_id}"}})
-            WHERE a.id <> "{id}"
+            MATCH (a:Announcement {{refId: "{announcement["refId"]}"}})
+            WHERE a.id <> "{announcement["id"]}"
                 AND a.eventType <> "delete"
+                AND a.state = "{announcement["state"]}"
             RETURN a{{.*}}
             """
         )
@@ -72,14 +71,14 @@ class Neo4jConnector:
         return [dict(announcement["a"]) for announcement in result]
 
     @staticmethod
-    def _read_company_related_to_annoucement_ids(
+    def _read_company_related_to_announcement_ids(
         tx, announcement_ids: List[str]
     ):
         result = tx.run(
             f"""
             MATCH (c:Company)<--(a:Announcement)
             WHERE a.id in {announcement_ids}
-            RETURN c{{.*}}
+            RETURN DISTINCT c{{.*}}
             """
         )
 

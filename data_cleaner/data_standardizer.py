@@ -31,8 +31,8 @@ class CompanyStandardizer:
             if announcement["status"] == "STATUS_INACTIVE":
                 # Get announcements with same refId
                 related_announcements = (
-                    self.connector.get_all_announcements_for_ref_id(
-                        announcement["refId"], announcement["id"]
+                    self.connector.get_all_announcements_by_ref_id(
+                        announcement
                     )
                 )
 
