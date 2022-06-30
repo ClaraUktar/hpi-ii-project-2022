@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package bakdata.corporate.v2;
+
+message DuplicateCompany {
+    string name = 1;
+    string originalName = 2;
+}

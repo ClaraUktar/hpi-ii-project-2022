@@ -6,6 +6,9 @@ from confluent_kafka.schema_registry.protobuf import ProtobufSerializer
 from confluent_kafka.serialization import StringSerializer
 
 from build.gen.bakdata.corporate.v2.cleaned_company_pb2 import CleanedCompany
+from build.gen.bakdata.corporate.v2.duplicate_company_pb2 import (
+    DuplicateCompany,
+)
 from neo4j_crawler.constants import (
     SCHEMA_REGISTRY_URL,
     BOOTSTRAP_SERVER,
@@ -15,29 +18,40 @@ from neo4j_crawler.constants import (
 logger = logging.getLogger(__name__)
 
 
-class CleanedCompanyProducer:
-    """Produces Kafka events from cleaned company protobuf objects"""
+class CompanyProducer:
+    """Produces Kafka events from cleaned or duplicate company protobuf objects"""
 
     def __init__(self):
         schema_registry_conf = {"url": SCHEMA_REGISTRY_URL}
         schema_registry_client = SchemaRegistryClient(schema_registry_conf)
 
-        protobuf_serializer = ProtobufSerializer(
+        cc_protobuf_serializer = ProtobufSerializer(
             CleanedCompany,
             schema_registry_client,
             {"use.deprecated.format": True},
         )
+        dc_protobuf_serializer = ProtobufSerializer(
+            DuplicateCompany,
+            schema_registry_client,
+            {"use.deprecated.format": True},
+        )
 
-        producer_conf = {
+        cc_producer_conf = {
             "bootstrap.servers": BOOTSTRAP_SERVER,
             "key.serializer": StringSerializer("utf_8"),
-            "value.serializer": protobuf_serializer,
+            "value.serializer": cc_protobuf_serializer,
+        }
+        dc_producer_conf = {
+            "bootstrap.servers": BOOTSTRAP_SERVER,
+            "key.serializer": StringSerializer("utf_8"),
+            "value.serializer": dc_protobuf_serializer,
         }
 
-        self.producer = SerializingProducer(producer_conf)
+        self.cc_producer = SerializingProducer(cc_producer_conf)
+        self.dc_producer = SerializingProducer(dc_producer_conf)
 
-    def produce_to_topic(self, company: CleanedCompany):
-        self.producer.produce(
+    def produce_cleaned_company(self, company: CleanedCompany):
+        self.cc_producer.produce(
             topic=TOPIC + "-cleaned",
             partition=-1,
             key=str(company.name),
@@ -46,7 +60,19 @@ class CleanedCompanyProducer:
         )
 
         # It is a naive approach to flush after each produce this can be optimised
-        self.producer.poll()
+        self.cc_producer.poll()
+
+    def produce_duplicate_company(self, company: DuplicateCompany):
+        self.dc_producer.produce(
+            topic=TOPIC + "-duplicate",
+            partition=-1,
+            key=str(company.name),
+            value=company,
+            on_delivery=self.delivery_report,
+        )
+
+        # It is a naive approach to flush after each produce this can be optimised
+        self.dc_producer.poll()
 
     @staticmethod
     def delivery_report(err, msg):
