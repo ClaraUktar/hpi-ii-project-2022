@@ -26,9 +26,7 @@ def run():
         logger.info(
             f"Consumed message {company.key()} with offset {company.offset()}"
         )
-        cleaned_company = cleaner.clean_company(company.value())
-
-        producer.produce_cleaned_company(cleaned_company)
+        cleaner.clean_company(company.value())
 
     cleaner.connector.close()
 

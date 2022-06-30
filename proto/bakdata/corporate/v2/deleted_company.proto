@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package bakdata.corporate.v2;
+
+message DeletedCompany {
+    string name = 1;
+}

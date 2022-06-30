@@ -2,6 +2,7 @@ import re
 
 from build.gen.bakdata.corporate.v2.cleaned_company_pb2 import CleanedCompany
 from build.gen.bakdata.corporate.v2.company_pb2 import Company
+from build.gen.bakdata.corporate.v2.deleted_company_pb2 import DeletedCompany
 from build.gen.bakdata.corporate.v2.duplicate_company_pb2 import (
     DuplicateCompany,
 )
@@ -19,6 +20,9 @@ class CompanyStandardizer:
         )
 
     def _clean_company_name(self, company: Company) -> str:
+        should_delete_company = False
+        company_name = company.name
+
         if bool(re.match(UUID_REGEX, company.name)):
             announcement = self.connector.get_announcement_for_company(
                 company.name
@@ -57,22 +61,39 @@ class CompanyStandardizer:
                             duplicate_company
                         )
 
-                # Else: Discard company, as we can't match it to anything
+                        return
+                    else:
+                        should_delete_company = True
+
+                else:
+                    # Discard company, as we can't match it to anything
+                    should_delete_company = True
             else:
                 # Check for messed up regex (ideally never happens)
-                pass
+                print(company)
+                print(announcement)
+                raise Exception("Found company with active announcement")
 
-            return company.name
-        return company.name
+                # TODO: Set company_name appropriately
+
+        if should_delete_company:
+            deleted_company = DeletedCompany()
+            deleted_company.name = company.name
+
+            self.producer.produce_deleted_company(deleted_company)
+        else:
+            return company_name
 
     def clean_company(self, company: Company) -> CleanedCompany:
         # TODO: Add cleaning logic
-        cleaned_company = CleanedCompany()
+        cleaned_company_name = self._clean_company_name(company)
 
-        cleaned_company.name = self._clean_company_name(company)
-        cleaned_company.address = company.address
-        cleaned_company.country = company.country
-        cleaned_company.description = company.description
-        cleaned_company.capital = company.capital
+        if cleaned_company_name:
+            cleaned_company = CleanedCompany()
+            cleaned_company.name = cleaned_company_name
+            cleaned_company.address = company.address
+            cleaned_company.country = company.country
+            cleaned_company.description = company.description
+            cleaned_company.capital = company.capital
 
-        return cleaned_company
+            self.producer.produce_cleaned_company(cleaned_company)

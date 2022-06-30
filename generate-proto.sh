@@ -6,3 +6,4 @@ protoc --proto_path=proto --python_out=build/gen proto/bakdata/corporate/v1/pate
 protoc --proto_path=proto --python_out=build/gen proto/bakdata/corporate/v2/company.proto
 protoc --proto_path=proto --python_out=build/gen proto/bakdata/corporate/v2/cleaned_company.proto
 protoc --proto_path=proto --python_out=build/gen proto/bakdata/corporate/v2/duplicate_company.proto
+protoc --proto_path=proto --python_out=build/gen proto/bakdata/corporate/v2/deleted_company.proto

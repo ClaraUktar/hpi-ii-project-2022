@@ -9,6 +9,7 @@ from build.gen.bakdata.corporate.v2.cleaned_company_pb2 import CleanedCompany
 from build.gen.bakdata.corporate.v2.duplicate_company_pb2 import (
     DuplicateCompany,
 )
+from build.gen.bakdata.corporate.v2.deleted_company_pb2 import DeletedCompany
 from neo4j_crawler.constants import (
     SCHEMA_REGISTRY_URL,
     BOOTSTRAP_SERVER,
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class CompanyProducer:
-    """Produces Kafka events from cleaned or duplicate company protobuf objects"""
+    """Produces Kafka events from cleaned or duplicate or deleted company protobuf objects"""
 
     def __init__(self):
         schema_registry_conf = {"url": SCHEMA_REGISTRY_URL}
@@ -35,6 +36,11 @@ class CompanyProducer:
             schema_registry_client,
             {"use.deprecated.format": True},
         )
+        delc_protobuf_serializer = ProtobufSerializer(
+            DeletedCompany,
+            schema_registry_client,
+            {"use.deprecated.format": True},
+        )
 
         cc_producer_conf = {
             "bootstrap.servers": BOOTSTRAP_SERVER,
@@ -46,9 +52,15 @@ class CompanyProducer:
             "key.serializer": StringSerializer("utf_8"),
             "value.serializer": dc_protobuf_serializer,
         }
+        delc_producer_conf = {
+            "bootstrap.servers": BOOTSTRAP_SERVER,
+            "key.serializer": StringSerializer("utf_8"),
+            "value.serializer": delc_protobuf_serializer,
+        }
 
         self.cc_producer = SerializingProducer(cc_producer_conf)
         self.dc_producer = SerializingProducer(dc_producer_conf)
+        self.delc_producer = SerializingProducer(delc_producer_conf)
 
     def produce_cleaned_company(self, company: CleanedCompany):
         self.cc_producer.produce(
@@ -73,6 +85,18 @@ class CompanyProducer:
 
         # It is a naive approach to flush after each produce this can be optimised
         self.dc_producer.poll()
+
+    def produce_deleted_company(self, company: DeletedCompany):
+        self.delc_producer.produce(
+            topic=TOPIC + "-deleted",
+            partition=-1,
+            key=str(company.name),
+            value=company,
+            on_delivery=self.delivery_report,
+        )
+
+        # It is a naive approach to flush after each produce this can be optimised
+        self.delc_producer.poll()
 
     @staticmethod
     def delivery_report(err, msg):
