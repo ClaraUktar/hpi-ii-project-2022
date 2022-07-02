@@ -1,5 +1,6 @@
 from typing import List
 from neo4j import GraphDatabase
+from datetime import datetime
 
 from build.gen.bakdata.corporate.v1.corporate_pb2 import Announcement
 from build.gen.bakdata.corporate.v2.company_pb2 import Company
@@ -48,10 +49,34 @@ class Neo4jConnector:
 
         return company
 
+    def get_newest_patent_date_for_company(
+        self, company_name: str
+    ) -> datetime:
+        date = None
+
+        with self.driver.session() as session:
+            date = session.read_transaction(
+                self._read_newest_patent_date_for_company, company_name
+            )
+
+        return date
+
+    def get_newest_announcement_date_for_company(
+        self, company_name: str
+    ) -> datetime:
+        date = None
+
+        with self.driver.session() as session:
+            date = session.read_transaction(
+                self._read_newest_announcement_date_for_company, company_name
+            )
+
+        return date
+
     @staticmethod
     def _read_first_announcement_for_company(tx, company_id):
         result = tx.run(
-            f'MATCH (:Company{{name: "{company_id}"}})<-[:IS_MADE_FOR]-(a:Announcement) RETURN a{{.*}}'
+            f'MATCH (:Company{{name: "{company_id}"}})<--(a:Announcement) RETURN a{{.*}}'
         )
 
         return result.single()["a"]
@@ -83,3 +108,30 @@ class Neo4jConnector:
         )
 
         return result.single()["c"]
+
+    @staticmethod
+    def _read_newest_patent_date_for_company(tx, company_id: str):
+        result = tx.run(
+            f"""
+            MATCH (:Company{{name: "{company_id}"}})<--(:Patent)-->(s:Status)
+            WHERE s.changeDate <> ""
+            RETURN apoc.coll.max(collect(datetime(s.changeDate))) as newestDate
+            """
+        )
+
+        return result.single()["newestDate"]
+
+    @staticmethod
+    def _read_newest_announcement_date_for_company(tx, company_id: str):
+        result = tx.run(
+            f"""
+            MATCH (:Company{{name: "{company_id}"}})<--(a:Announcement)
+            RETURN apoc.coll.max(
+                collect(datetime(
+                    {{epochmillis:apoc.date.parse(a.eventDate, "ms", "dd.MM.yyyy")}}
+                ))
+            ) as newestDate
+        """
+        )
+
+        return result.single()["newestDate"]
