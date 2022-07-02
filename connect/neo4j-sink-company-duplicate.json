@@ -1,0 +1,18 @@
+{
+    "name": "Neo4jSinkConnector-Duplicate-Companies",
+    "config": {
+        "connector.class": "streams.kafka.connect.sink.Neo4jSinkConnector",
+        "value.converter.schemas.enable": false,
+        "topics": "companies-duplicate",
+        "neo4j.topic.cypher.companies-duplicate": "MATCH (c:Company { name: event.name })<-[rel:IS_MADE_FOR]-(a:Announcement) MATCH (oc:Company { name: event.originalName }) DELETE rel MERGE (oc)<-[:IS_MADE_FOR]-(a) DELETE c",
+        "errors.retry.timeout": "-1",
+        "errors.retry.delay.max.ms": "1000",
+        "errors.tolerance": "all",
+        "errors.log.enable": true,
+        "errors.log.include.messages": true,
+        "neo4j.server.uri": "bolt://neo4j:7687",
+        "neo4j.authentication.basic.username": "neo4j",
+        "neo4j.authentication.basic.password": "test",
+        "neo4j.encryption.enabled": false
+    }
+}

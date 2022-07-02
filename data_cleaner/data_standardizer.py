@@ -81,6 +81,7 @@ class CompanyStandardizer:
             deleted_company.name = company.name
 
             self.producer.produce_deleted_company(deleted_company)
+            return
         else:
             return company_name
 
