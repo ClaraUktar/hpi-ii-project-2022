@@ -88,6 +88,14 @@ This process continues until either the weekly quota limit of the EPO API is rea
 
 The ES dump crawler fetches EPO data from a ElasticSearch dump file created using [elasticdump](https://github.com/elasticsearch-dump/elasticsearch-dump) and produces the entries to the `patents` topic in Kafka.
 
+## Neo4j Crawler
+
+The Neo4j crawler fetches integrated company data from a Neo4j database and produces the entries to the `companies` topic in Kafka.
+
+## Data Cleaner
+
+The data cleaner consumes companies from the `companies` topic. It cleans all of the attributes of a company. Those cleaned companies are then produced to the `companies-cleaned` topic. Additionally, detected duplicates are produced to the `companies-duplicate` topic. Lastly, if the company cannot be cleaned and not be related to a duplicate, it is produced to the `companies-deleted` topic.
+
 ### Kafka Connect
 
 [Kafka Connect](https://docs.confluent.io/platform/current/connect/index.html) is a tool to move large data sets into
@@ -220,6 +228,22 @@ Options:
   -f, --file TEXT  A path to an elasticdump file containing EPO patents.
                    [required]
   --help           Show this message and exit.
+```
+
+### Neo4j Crawler
+
+You can start the crawler with the command below:
+
+```shell
+poetry run python neo4j_crawler/main.py
+```
+
+### Data Cleaner
+
+You can start the data cleaner with the command below:
+
+```shell
+poetry run python data_cleaner/main.py
 ```
 
 ## Query data
