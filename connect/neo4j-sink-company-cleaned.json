@@ -4,7 +4,7 @@
         "connector.class": "streams.kafka.connect.sink.Neo4jSinkConnector",
         "value.converter.schemas.enable": false,
         "topics": "companies-cleaned",
-        "neo4j.topic.cypher.companies-cleaned": "MERGE (c:Company { name: event.name }) SET c = event",
+        "neo4j.topic.cypher.companies-cleaned": "MATCH (c:Company { name: event.name }) SET c = event",
         "errors.retry.timeout": "-1",
         "errors.retry.delay.max.ms": "1000",
         "errors.tolerance": "all",

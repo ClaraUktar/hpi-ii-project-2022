@@ -4,7 +4,7 @@
         "connector.class": "streams.kafka.connect.sink.Neo4jSinkConnector",
         "value.converter.schemas.enable": false,
         "topics": "companies-deleted",
-        "neo4j.topic.cypher.companies-deleted": "MATCH (c:Company { name: event.name })<--(a:Announcement) DETACH DELETE c, a",
+        "neo4j.topic.cypher.companies-deleted": "MATCH (c:Company { name: event.name }) OPTIONAL MATCH (c)<--(a:Announcement) DETACH DELETE c, a",
         "errors.retry.timeout": "-1",
         "errors.retry.delay.max.ms": "1000",
         "errors.tolerance": "all",
