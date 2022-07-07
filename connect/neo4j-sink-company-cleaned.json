@@ -10,9 +10,13 @@
         "errors.tolerance": "all",
         "errors.log.enable": true,
         "errors.log.include.messages": true,
-        "neo4j.server.uri": "bolt://neo4j:7687",
+        "neo4j.server.uri": "bolt://neo4j-cleaned:7687",
         "neo4j.authentication.basic.username": "neo4j",
         "neo4j.authentication.basic.password": "test",
-        "neo4j.encryption.enabled": false
+        "neo4j.encryption.enabled": false,
+        "transforms": "filterValue",
+        "transforms.filterValue.filter.condition": "$[?(@.name =~ /^\\[.*/)]",
+        "transforms.filterValue.filter.type": "exclude",
+        "transforms.filterValue.type": "io.confluent.connect.transforms.Filter$Value"
     }
 }
